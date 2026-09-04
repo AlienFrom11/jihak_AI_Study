@@ -4,9 +4,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebas
 import { 
     getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
-import { 
-    getStorage, ref, uploadBytes, getDownloadURL 
-} from "https://www.gstatic.com/firebasejs/10.4.0/firebase-storage.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyDzbuP6GUpabOa1MEiTXJ4I6dWnisqBiP8",
@@ -21,27 +18,13 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const storage = getStorage(app);
 
 document.addEventListener('DOMContentLoaded', () => {
     const postForm = document.getElementById('post-form');
     const postList = document.getElementById('post-list');
     const postSubmitBtn = document.getElementById('post-submit-btn');
-    const postImageInput = document.getElementById('post-image');
-    const fileNameEl = document.getElementById('file-name');
     const openFormBtn = document.getElementById('open-form-btn');
     const postFormSection = document.getElementById('post-form-section');
-
-    // 선택한 파일 이름 표시
-    postImageInput.addEventListener('change', () => {
-        const file = postImageInput.files[0];
-        if (file) {
-            fileNameEl.textContent = `📎 ${file.name}`;
-            fileNameEl.hidden = false;
-        } else {
-            fileNameEl.hidden = true;
-        }
-    });
 
     // 상단 + 버튼 → 작성 폼으로 스크롤 & 포커스
     openFormBtn.addEventListener('click', () => {
@@ -71,54 +54,23 @@ document.addEventListener('DOMContentLoaded', () => {
              .replace(/'/g, "&#039;");
     };
 
-    const validateFile = (file) => {
-        if (!file) return true;
-        if (!file.type.startsWith('image/')) {
-            alert('이미지 파일만 업로드할 수 있습니다.');
-            return false;
-        }
-        const MAX_SIZE = 5 * 1024 * 1024;
-        if (file.size > MAX_SIZE) {
-            alert('파일 크기는 5MB 이하여야 합니다.');
-            return false;
-        }
-        return true;
-    };
-
-    const uploadImage = async (file) => {
-        if (!file) return null;
-        const fileName = `${Date.now()}_${file.name}`;
-        const storageRef = ref(storage, `images/${fileName}`);
-        await uploadBytes(storageRef, file);
-        return await getDownloadURL(storageRef);
-    };
-
     postForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const title = document.getElementById('post-title').value;
         const content = document.getElementById('post-content').value;
-        const imageFile = document.getElementById('post-image').files[0];
-
-        if (!validateFile(imageFile)) return;
 
         try {
             postSubmitBtn.disabled = true;
             postSubmitBtn.textContent = '등록 중...';
 
-            let imageUrl = null;
-            if (imageFile) {
-                imageUrl = await withTimeout(uploadImage(imageFile));
-            }
-
             await withTimeout(addDoc(collection(db, 'posts'), {
                 title: title,
                 content: content,
-                imageUrl: imageUrl,
+                imageUrl: null,
                 createdAt: serverTimestamp()
             }));
             
             postForm.reset();
-            fileNameEl.hidden = true;
         } catch (error) {
             console.error('게시글 등록 중 오류 발생:', error);
             if (error.message === 'TIMEOUT') {
