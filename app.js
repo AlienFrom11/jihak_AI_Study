@@ -27,6 +27,33 @@ document.addEventListener('DOMContentLoaded', () => {
     const postForm = document.getElementById('post-form');
     const postList = document.getElementById('post-list');
     const postSubmitBtn = document.getElementById('post-submit-btn');
+    const postImageInput = document.getElementById('post-image');
+    const fileNameEl = document.getElementById('file-name');
+    const openFormBtn = document.getElementById('open-form-btn');
+    const postFormSection = document.getElementById('post-form-section');
+
+    // 선택한 파일 이름 표시
+    postImageInput.addEventListener('change', () => {
+        const file = postImageInput.files[0];
+        if (file) {
+            fileNameEl.textContent = `📎 ${file.name}`;
+            fileNameEl.hidden = false;
+        } else {
+            fileNameEl.hidden = true;
+        }
+    });
+
+    // 상단 + 버튼 → 작성 폼으로 스크롤 & 포커스
+    openFormBtn.addEventListener('click', () => {
+        postFormSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        document.getElementById('post-title').focus();
+    });
+
+    // 하트(좋아요) 토글
+    postList.addEventListener('click', (e) => {
+        const heart = e.target.closest('.icon-heart');
+        if (heart) heart.classList.toggle('liked');
+    });
 
     const escapeHtml = (unsafe) => {
         return (unsafe || '')
@@ -84,6 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             
             postForm.reset();
+            fileNameEl.hidden = true;
         } catch (error) {
             console.error('게시글 등록 중 오류 발생:', error);
             alert('게시글 등록에 실패했습니다. Firebase 권한이나 설정을 확인하세요.');
@@ -117,15 +145,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     article.innerHTML = `
-                        <h3 class="post-item-title">${escapeHtml(post.title)}</h3>
-                        <p class="post-item-content">${escapeHtml(post.content)}</p>
+                        <header class="post-head">
+                            <div class="avatar" aria-hidden="true"></div>
+                            <span class="post-item-title">${escapeHtml(post.title)}</span>
+                        </header>
                         ${imageHtml}
+                        <div class="post-actions">
+                            <svg class="icon-heart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="26" height="26" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"></path></svg>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="26" height="26" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+                        </div>
+                        <div class="post-body">
+                            <p class="post-item-content">${escapeHtml(post.content)}</p>
+                        </div>
                         <div class="comments-section">
-                            <h4>댓글</h4>
                             <ul class="comment-list" id="comment-list-${postId}"></ul>
                             <form class="comment-form" data-post-id="${postId}">
-                                <input type="text" class="comment-input" placeholder="댓글을 입력하세요" required>
-                                <button type="submit" class="btn btn-small comment-submit-btn">댓글 작성</button>
+                                <input type="text" class="comment-input" placeholder="댓글 달기..." required>
+                                <button type="submit" class="comment-submit-btn">게시</button>
                             </form>
                         </div>
                     `;
@@ -156,7 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const comment = change.doc.data();
                     const li = document.createElement('li');
                     li.className = 'comment-item';
-                    li.innerHTML = `<span class="comment-author">익명:</span> ${escapeHtml(comment.text)}`;
+                    li.innerHTML = `<span class="comment-author">익명</span>${escapeHtml(comment.text)}`;
                     commentListEl.appendChild(li);
                 }
             });
