@@ -28,6 +28,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const postList = document.getElementById('post-list');
     const postSubmitBtn = document.getElementById('post-submit-btn');
 
+    const withTimeout = (promise, ms = 5000) => {
+        return Promise.race([
+            promise,
+            new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), ms))
+        ]);
+    };
+
     const escapeHtml = (unsafe) => {
         return (unsafe || '')
              .replace(/&/g, "&amp;")
@@ -73,20 +80,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let imageUrl = null;
             if (imageFile) {
-                imageUrl = await uploadImage(imageFile);
+                imageUrl = await withTimeout(uploadImage(imageFile));
             }
 
-            await addDoc(collection(db, 'posts'), {
+            await withTimeout(addDoc(collection(db, 'posts'), {
                 title: title,
                 content: content,
                 imageUrl: imageUrl,
                 createdAt: serverTimestamp()
-            });
+            }));
             
             postForm.reset();
         } catch (error) {
             console.error('게시글 등록 중 오류 발생:', error);
-            alert('게시글 등록에 실패했습니다. Firebase 권한이나 설정을 확인하세요.');
+            if (error.message === 'TIMEOUT') {
+                alert('서버 응답 지연: Firebase 콘솔에서 Firestore가 생성되었는지 확인하세요.');
+            } else {
+                alert('게시글 등록에 실패했습니다. Firebase 권한이나 설정을 확인하세요.');
+            }
         } finally {
             postSubmitBtn.disabled = false;
             postSubmitBtn.textContent = '게시글 등록';
@@ -177,15 +188,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 submitBtn.disabled = true;
                 submitBtn.textContent = '작성 중...';
 
-                await addDoc(collection(db, 'posts', postId, 'comments'), {
+                await withTimeout(addDoc(collection(db, 'posts', postId, 'comments'), {
                     text: commentText,
                     createdAt: serverTimestamp()
-                });
+                }));
                 
                 form.reset();
             } catch (error) {
                 console.error('댓글 등록 중 오류 발생:', error);
-                alert('댓글 등록에 실패했습니다.');
+                if (error.message === 'TIMEOUT') {
+                    alert('서버 응답 지연: Firebase 콘솔에서 Firestore가 생성되었는지 확인하세요.');
+                } else {
+                    alert('댓글 등록에 실패했습니다.');
+                }
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.textContent = '댓글 작성';
