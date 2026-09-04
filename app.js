@@ -18,7 +18,6 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const storage = getStorage(app);
 
 document.addEventListener('DOMContentLoaded', () => {
     const postForm = document.getElementById('post-form');
