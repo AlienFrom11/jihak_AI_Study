@@ -55,7 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (heart) heart.classList.toggle('liked');
     });
 
-    const withTimeout = (promise, ms = 5000) => {
+    const withTimeout = (promise, ms = 10000) => {
         return Promise.race([
             promise,
             new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), ms))
@@ -107,7 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let imageUrl = null;
             if (imageFile) {
-                imageUrl = await withTimeout(uploadImage(imageFile));
+                imageUrl = await uploadImage(imageFile);
             }
 
             await withTimeout(addDoc(collection(db, 'posts'), {
