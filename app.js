@@ -19,7 +19,6 @@ const firebaseConfig = {
     measurementId: "G-6W4XQS3J10"
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const storage = getStorage(app);
@@ -29,51 +28,46 @@ document.addEventListener('DOMContentLoaded', () => {
     const postList = document.getElementById('post-list');
     const postSubmitBtn = document.getElementById('post-submit-btn');
 
-    // 파일 유효성 검사 함수
-    const validateFile = (file) => {
-        if (!file) return true; // 파일이 선택되지 않은 경우는 패스 (필수가 아님)
+    const escapeHtml = (unsafe) => {
+        return (unsafe || '')
+             .replace(/&/g, "&amp;")
+             .replace(/</g, "&lt;")
+             .replace(/>/g, "&gt;")
+             .replace(/"/g, "&quot;")
+             .replace(/'/g, "&#039;");
+    };
 
-        // 이미지 타입 검사
+    const validateFile = (file) => {
+        if (!file) return true;
         if (!file.type.startsWith('image/')) {
             alert('이미지 파일만 업로드할 수 있습니다.');
             return false;
         }
-
-        // 파일 크기 제한 (5MB = 5 * 1024 * 1024 bytes)
         const MAX_SIZE = 5 * 1024 * 1024;
         if (file.size > MAX_SIZE) {
             alert('파일 크기는 5MB 이하여야 합니다.');
             return false;
         }
-
         return true;
     };
 
-    // 이미지 업로드 함수
     const uploadImage = async (file) => {
         if (!file) return null;
         const fileName = `${Date.now()}_${file.name}`;
         const storageRef = ref(storage, `images/${fileName}`);
         await uploadBytes(storageRef, file);
-        const downloadURL = await getDownloadURL(storageRef);
-        return downloadURL;
+        return await getDownloadURL(storageRef);
     };
 
-    // 게시글 작성 폼 제출 이벤트 처리
     postForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        
         const title = document.getElementById('post-title').value;
         const content = document.getElementById('post-content').value;
         const imageFile = document.getElementById('post-image').files[0];
 
-        // 유효성 검사
-        if (!validateFile(imageFile)) {
-            return;
-        }
+        if (!validateFile(imageFile)) return;
 
         try {
-            // 연타 방지: 버튼 비활성화
             postSubmitBtn.disabled = true;
             postSubmitBtn.textContent = '등록 중...';
 
@@ -89,64 +83,65 @@ document.addEventListener('DOMContentLoaded', () => {
                 createdAt: serverTimestamp()
             });
             
-            alert('게시글이 성공적으로 등록되었습니다!');
             postForm.reset();
         } catch (error) {
             console.error('게시글 등록 중 오류 발생:', error);
-            alert('게시글 등록에 실패했습니다.');
+            alert('게시글 등록에 실패했습니다. Firebase 권한이나 설정을 확인하세요.');
         } finally {
-            // 버튼 활성화 복구
             postSubmitBtn.disabled = false;
             postSubmitBtn.textContent = '게시글 등록';
         }
     });
 
-    // 게시글 및 댓글 렌더링을 위한 실시간 리스너
+    // 실시간 리스너 (docChanges 활용하여 메모리 누수 및 DOM 파괴 방지)
     const loadPosts = () => {
         const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
+        
         onSnapshot(q, (snapshot) => {
-            postList.innerHTML = ''; // 초기화
-            snapshot.forEach((postDoc) => {
-                const post = postDoc.data();
-                const postId = postDoc.id;
+            if (postList.innerHTML.includes("임시 데이터")) {
+                postList.innerHTML = ''; 
+            }
 
-                const article = document.createElement('article');
-                article.className = 'post-item';
+            snapshot.docChanges().forEach((change) => {
+                if (change.type === 'added') {
+                    const post = change.doc.data();
+                    const postId = change.doc.id;
 
-                // 이미지 영역 처리
-                let imageHtml = '';
-                if (post.imageUrl) {
-                    imageHtml = `<div class="post-item-image"><img src="${post.imageUrl}" alt="첨부 이미지"></div>`;
+                    const article = document.createElement('article');
+                    article.className = 'post-item';
+                    article.id = `post-${postId}`;
+
+                    let imageHtml = '';
+                    if (post.imageUrl) {
+                        imageHtml = `<div class="post-item-image"><img src="${escapeHtml(post.imageUrl)}" alt="첨부 이미지"></div>`;
+                    }
+
+                    article.innerHTML = `
+                        <h3 class="post-item-title">${escapeHtml(post.title)}</h3>
+                        <p class="post-item-content">${escapeHtml(post.content)}</p>
+                        ${imageHtml}
+                        <div class="comments-section">
+                            <h4>댓글</h4>
+                            <ul class="comment-list" id="comment-list-${postId}"></ul>
+                            <form class="comment-form" data-post-id="${postId}">
+                                <input type="text" class="comment-input" placeholder="댓글을 입력하세요" required>
+                                <button type="submit" class="btn btn-small comment-submit-btn">댓글 작성</button>
+                            </form>
+                        </div>
+                    `;
+
+                    // 최신 글이 위로 가도록 삽입
+                    if (postList.firstChild) {
+                        postList.insertBefore(article, postList.firstChild);
+                    } else {
+                        postList.appendChild(article);
+                    }
+
+                    loadComments(postId);
                 }
-
-                // 댓글 렌더링 컨테이너
-                const commentsHtml = `
-                    <div class="comments-section">
-                        <h4>댓글</h4>
-                        <ul class="comment-list" id="comment-list-${postId}">
-                            <!-- 댓글이 실시간으로 로드됩니다 -->
-                        </ul>
-                        <form class="comment-form" data-post-id="${postId}">
-                            <input type="text" class="comment-input" placeholder="댓글을 입력하세요" required>
-                            <button type="submit" class="btn btn-small comment-submit-btn">댓글 작성</button>
-                        </form>
-                    </div>
-                `;
-
-                article.innerHTML = `
-                    <h3 class="post-item-title">${escapeHtml(post.title)}</h3>
-                    <p class="post-item-content">${escapeHtml(post.content)}</p>
-                    ${imageHtml}
-                    ${commentsHtml}
-                `;
-
-                postList.appendChild(article);
-
-                // 각 게시글에 대한 댓글 실시간 리스너 등록
-                loadComments(postId);
             });
         }, (error) => {
-            console.error("게시글을 불러오는 중 오류 발생:", error);
+            console.error("게시글 로드 오류:", error);
         });
     };
 
@@ -154,20 +149,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const commentsQ = query(collection(db, 'posts', postId, 'comments'), orderBy('createdAt', 'asc'));
         onSnapshot(commentsQ, (snapshot) => {
             const commentListEl = document.getElementById(`comment-list-${postId}`);
-            if (commentListEl) {
-                commentListEl.innerHTML = '';
-                snapshot.forEach((commentDoc) => {
-                    const comment = commentDoc.data();
+            if (!commentListEl) return;
+
+            snapshot.docChanges().forEach((change) => {
+                if (change.type === 'added') {
+                    const comment = change.doc.data();
                     const li = document.createElement('li');
                     li.className = 'comment-item';
                     li.innerHTML = `<span class="comment-author">익명:</span> ${escapeHtml(comment.text)}`;
                     commentListEl.appendChild(li);
-                });
-            }
+                }
+            });
         });
     };
 
-    // 댓글 작성 폼 제출 이벤트 처리
     postList.addEventListener('submit', async (e) => {
         if (e.target.classList.contains('comment-form')) {
             e.preventDefault();
@@ -179,7 +174,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const commentText = commentInput.value;
             
             try {
-                // 연타 방지
                 submitBtn.disabled = true;
                 submitBtn.textContent = '작성 중...';
 
@@ -199,16 +193,5 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 간단한 HTML 이스케이프 함수 (XSS 방지용)
-    const escapeHtml = (unsafe) => {
-        return (unsafe || '')
-             .replace(/&/g, "&amp;")
-             .replace(/</g, "&lt;")
-             .replace(/>/g, "&gt;")
-             .replace(/"/g, "&quot;")
-             .replace(/'/g, "&#039;");
-    };
-
-    // 초기 게시글 로드
     loadPosts();
 });

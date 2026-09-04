@@ -186,3 +186,67 @@ h2 {
     border: 1px solid var(--border-color);
     border-radius: 4px;
 }
+
+/* Dark Mode Styles */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --primary-color: #64b5f6;
+        --border-color: #444;
+        --bg-color: #2a2a2a;
+        --text-color: #e0e0e0;
+    }
+    
+    body {
+        background-color: #121212;
+    }
+    
+    .container, .post-item {
+        background-color: #1e1e1e;
+        border-color: var(--border-color);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+    }
+    
+    .post-item-title {
+        color: #e0e0e0;
+    }
+    
+    .comments-section h4 {
+        color: #bbb;
+    }
+    
+    .comments-section {
+        border-top-color: #444;
+    }
+    
+    .image-placeholder {
+        background-color: #333;
+        border-color: #555;
+        color: #aaa;
+    }
+    
+    .comment-item {
+        background-color: #2a2a2a;
+    }
+    
+    .form-group input[type="text"],
+    .form-group textarea,
+    .comment-input {
+        background-color: #2a2a2a;
+        color: var(--text-color);
+        border-color: var(--border-color);
+    }
+    
+    .form-group input[type="text"]::placeholder,
+    .form-group textarea::placeholder,
+    .comment-input::placeholder {
+        color: #888;
+    }
+    
+    .btn {
+        color: #121212;
+    }
+    
+    .btn:hover:not(:disabled) {
+        background-color: #90caf9;
+    }
+}
